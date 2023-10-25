@@ -49,8 +49,6 @@ Més avall es representarà com `{C}`.
 | `N`      | Not your turn  | El client vol fer una acció quan no és el seu torn.                                                                |
 | `U`      | Unknown cookie | La cookie donada pel client no és reconeguda.                                                                      |
 
-\newpage
-
 ## Format del mapa
 
 | Caracter  | Significat                       |
