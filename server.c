@@ -306,18 +306,23 @@ void doAction(GameData_t *g, ServerData_t *s, Cmd c) {
 			else RESPOND("F\n");
 			break;
 		case CMD_ACTION:
-			updatePlayerAddr(g, s, c.p);
-			if (c.a == 'V') showMap(g, s, c.p);
+			if (c.p < 0) {
+				RESPOND("U\n");
+			}
 			else {
-				if (c.p != g->currentTurn)
-					RESPOND("N\n");
-				else if (!strchr("UDLR", c.d))
-					RESPOND("E\n");
-				else switch (c.a) {
-					case 'M': movePlayer(g, s, c); break;
-					case 'T': turnPlayer(g, s, c); break;
-					case 'S': shootPlayer(g, s, c); break;
-					default: RESPOND("E\n");
+				updatePlayerAddr(g, s, c.p);
+				if (c.a == 'V') showMap(g, s, c.p);
+				else {
+					if (c.p != g->currentTurn)
+						RESPOND("N\n");
+					else if (!strchr("UDLR", c.d))
+						RESPOND("E\n");
+					else switch (c.a) {
+						case 'M': movePlayer(g, s, c); break;
+						case 'T': turnPlayer(g, s, c); break;
+						case 'S': shootPlayer(g, s, c); break;
+						default: RESPOND("E\n");
+					}
 				}
 			}
 			break;
