@@ -58,7 +58,7 @@ typedef struct {
 	int p;  // Player
 	char a; // Action
 	char d; // Direction
-} Cmd;
+} Cmd_t;
 
 typedef struct {
 	int sockfd;
@@ -92,7 +92,7 @@ int getPlayerByCookie(GameData_t *g, int c) {
 	return -1;
 }
 
-void parseMsgClient(GameData_t *g, ServerData_t *s, Cmd *c) {
+void parseMsgClient(GameData_t *g, ServerData_t *s, Cmd_t *c) {
 	char *msg;
 	int cookie = strtol(s->inbuf, &msg, 10);
 	c->p = getPlayerByCookie(g, cookie);
@@ -101,8 +101,8 @@ void parseMsgClient(GameData_t *g, ServerData_t *s, Cmd *c) {
 	c->d = msg[1];
 }
 
-Cmd parseMsg(GameData_t *g, ServerData_t *s) {
-	Cmd cmd = {0, -1, -1, -1};
+Cmd_t parseMsg(GameData_t *g, ServerData_t *s) {
+	Cmd_t cmd = {0, -1, -1, -1};
 
 	if (s->inbuf[0] == 'R') {
 		cmd.c = CMD_REQUEST;
@@ -171,71 +171,9 @@ char drawDirection(char d) {
 	}
 }
 
-void showMap(GameData_t *g, ServerData_t *s, int p) {
-	char map[MAXMAP];
-	Position_t *pos = &(g->players[p].pos);
-
-	int cols = g->activeMap->columns;
-	int rows = strlen(g->activeMap->data) / cols;
-	int i;
-
-	strncpy(map, g->activeMap->data, MAXMAP);
-	for (i = 0; i < g->playersConnected; i++) {
-		pos = &(g->players[i].pos);
-		map[g->activeMap->columns * pos->y + pos->x] = drawDirection(pos->ori);
-	}
-	pos = &(g->players[p].pos);
-
-	// Esconder detras
-	for (i = 0; i < cols; i++) {
-		int dX = i - pos->x;
-		for (int j = 0; j < rows; j++) {
-			int dY = j - pos->y;
-			int hidden = 0;
-			switch (pos->ori) {
-				case 'U':
-					hidden = dY > 0 || dX*dX - dY*dY >  3;
-					break;
-				case 'D':
-					hidden = dY < 0 || dX*dX - dY*dY >  3;
-					break;
-				case 'L':
-					hidden = dX > 0 || dX*dX - dY*dY < -3;
-					break;
-				case 'R':
-					hidden = dX < 0 || dX*dX - dY*dY < -1;
-					break;
-			}
-			if (hidden) map[j * cols + i] = '.';
-		}
-	}
-
-	//TODO: arreglar esto
-	int maxview = 0;
-
-	for (i = pos->x; i < cols; i++) {
-		//int hidden = 0;
-		for (int j = pos->y - 1; j >= 0; j--) {
-			if (j < maxview) {
-				map[j * cols + i] = '*';
-				continue;
-			}
-			else if (map[j * cols + i] == 'X') { maxview = j; }
-		}
-	}
-
-//	for (i = pos->x; i < cols; i++) {
-//		int dX = i - pos->x;
-//		for (int j = pos->y; pos->y - j <= dX && j >= 0; j--) {
-//			if (blocked[j]) map[j * cols + i] = '*';
-//			//int dY = j - pos->y;
-//			if (map[j * cols + i] == 'X') blocked[j] = 1;
-//		}
-//	}
-
-
-
-	RESPOND("M:%d:%s\n", g->activeMap->columns, map);
+int isSeeable(char c) {
+	if (strchr(" ", c)) return 1;
+	else return 0;
 }
 
 int isMovable(char c) {
@@ -248,13 +186,66 @@ int isShootable(char c) {
 	else return 0;
 }
 
-void turnPlayer(GameData_t *g, ServerData_t *s, Cmd c) {
+void showMap(GameData_t *g, ServerData_t *s, int p) {
+	char map[MAXMAP];
+	Position_t *pos = &(g->players[p].pos);
+
+	int cols = g->activeMap->columns;
+	int rows = strlen(g->activeMap->data) / cols;
+
+	strncpy(map, g->activeMap->data, MAXMAP);
+	// Mostrar jugadores en mapa
+	for (int i = 0; i < g->playersConnected; i++) {
+		pos = &(g->players[i].pos);
+		map[g->activeMap->columns * pos->y + pos->x] = drawDirection(pos->ori);
+	}
+	pos = &(g->players[p].pos);
+
+	// Calculo rectangulo vision
+	int x0, xf, y0, yf;
+	switch (pos->ori) {
+		case 'U':
+			x0 = pos->x - 1;
+			xf = pos->x + 1;
+			yf = pos->y + 1;
+			for (y0 = pos->y - 1; isSeeable(g->activeMap->data[y0 * cols + pos->x]); y0--);
+			break;
+		case 'D':
+			x0 = pos->x - 1;
+			xf = pos->x + 1;
+			y0 = pos->y - 1;
+			for (yf = pos->y + 1; isSeeable(g->activeMap->data[yf * cols + pos->x]); yf++);
+			break;
+		case 'L':
+			y0 = pos->y - 1;
+			yf = pos->y + 1;
+			xf = pos->x + 1;
+			for (x0 = pos->x - 1; isSeeable(g->activeMap->data[pos->y * cols + x0]); x0--);
+			break;
+		case 'R':
+			y0 = pos->y - 1;
+			yf = pos->y + 1;
+			x0 = pos->x - 1;
+			for (xf = pos->x + 1; isSeeable(g->activeMap->data[pos->y * cols + xf]); xf++);
+			break;
+	}
+
+	// Esconder
+	for (int i = 0; i < cols; i++)
+		for (int j = 0; j < rows; j++)
+			if (i < x0 || i > xf || j < y0 || j > yf)
+				map[j * cols + i] = '.';
+
+	RESPOND("M:%d:%s\n", g->activeMap->columns, map);
+}
+
+void turnPlayer(GameData_t *g, ServerData_t *s, Cmd_t c) {
 	g->players[c.p].pos.ori = c.d;
 	g->currentTurn = (g->currentTurn + 1) % g->playersConnected;
 	RESPOND("K\n");
 }
 
-void movePlayer(GameData_t *g, ServerData_t *s, Cmd c) {
+void movePlayer(GameData_t *g, ServerData_t *s, Cmd_t c) {
 	int posX = g->players[c.p].pos.x;
 	int posY = g->players[c.p].pos.y;
 	int newX = posX + (c.d == 'R') - (c.d == 'L');
@@ -270,8 +261,7 @@ void movePlayer(GameData_t *g, ServerData_t *s, Cmd c) {
 	else RESPOND("I\n");
 }
 
-//TODO: assumed 2-player
-void shootPlayer(GameData_t *g, ServerData_t *s, Cmd c) {
+void shootPlayer(GameData_t *g, ServerData_t *s, Cmd_t c) {
 	int columns = g->activeMap->columns;
 	Position_t *myPos = &g->players[c.p].pos;
 	Position_t *enemyPos = &g->players[!c.p].pos;
@@ -292,7 +282,7 @@ void shootPlayer(GameData_t *g, ServerData_t *s, Cmd c) {
 	turnPlayer(g, s, c);
 }
 
-void doAction(GameData_t *g, ServerData_t *s, Cmd c) {
+void doAction(GameData_t *g, ServerData_t *s, Cmd_t c) {
 	int p;
 
 	switch (c.c) {
@@ -348,7 +338,7 @@ int main (int argc, char **argv) {
 	ServerData_t s;
 	int port;
 	int e;
-	Cmd cmd;
+	Cmd_t cmd;
 
 	if (argc < 2) ABORT("Has d'especificar el port.", 1);
 
@@ -357,7 +347,6 @@ int main (int argc, char **argv) {
 	if (e == -2) ABORT("Error al crear el socket.", 2);
 	else if (e == -1) ABORT("Error al reservar el socket.", 3);
 
-
 	initGameData(&g);
 	srand(time(NULL));
 
@@ -365,7 +354,6 @@ int main (int argc, char **argv) {
 		recvMsg(&s);
 		cmd = parseMsg(&g, &s);
 		doAction(&g, &s, cmd);
-		//sprintf(s.outbuf, "Hello\n");
 		sendResp(&s);
 		informTurn(&g, &s);
 	}
