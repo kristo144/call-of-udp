@@ -38,12 +38,12 @@ typedef struct {
 Map_t defaultMap = {
 	8, {{1, 6, 'R'}, {6, 1, 'L'}}, 
 	"XXXXXXXX"
-	"X      X"
-	"X XX XXX"
-	"X X    X"
-	"X    X X"
-	"XXX XX X"
-	"X      X"
+	"XSSSSSSX"
+	"XSXXSXXX"
+	"XSXSSSSX"
+	"XSSSSXSX"
+	"XXXSXXSX"
+	"XSSSSSSX"
 	"XXXXXXXX"
 };
 
