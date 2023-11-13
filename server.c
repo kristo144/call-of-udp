@@ -172,17 +172,17 @@ char drawDirection(char d) {
 }
 
 int isSeeable(char c) {
-	if (strchr(" ", c)) return 1;
+	if (strchr("S", c)) return 1;
 	else return 0;
 }
 
 int isMovable(char c) {
-	if (strchr(" ", c)) return 1;
+	if (strchr("S", c)) return 1;
 	else return 0;
 }
 
 int isShootable(char c) {
-	if (strchr(" ", c)) return 1;
+	if (strchr("S", c)) return 1;
 	else return 0;
 }
 

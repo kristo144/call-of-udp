@@ -44,7 +44,7 @@ int initConectionData(ClientData_t *c, int p) {
 	return 0;
 }
 
-void showMap(ClientData_t *c) {
+int showMap(ClientData_t *c) {
 	int dim;
 	char response, map[MAXMAP];
 
@@ -52,9 +52,9 @@ void showMap(ClientData_t *c) {
 
 	sendMsg(c);
 	recvMsg(c);
-
 	sscanf(c->inbuf, "%c:%d:%s\n\0", &response, &dim, map);
-	//printf("MAP:\n%s\n\n\n", map);
+	
+	if(response == 'W') return -6;
 
 	for(short i = 0; i < dim; i++) {
 		for(short j = 0; j < dim; j++) {
@@ -62,6 +62,8 @@ void showMap(ClientData_t *c) {
 		}
 		printf("\n");
 	}
+
+	return 0;
 }
 
 int startGame(ClientData_t *c) {
@@ -83,6 +85,8 @@ int startGame(ClientData_t *c) {
 	recvMsg(c);
 	sscanf(c->inbuf, "%c\n\0", &response);
 	printf("Your turn!\n");
+
+	showMap(c);
 
 	return 0;
 }
@@ -124,23 +128,35 @@ int main (int argc, char **argv) {
 			resp[0] = getchar();
 			resp[1] = getchar();
 		} while (!((resp[0] == 'M' || resp[0] == 'T' || resp[0] == 'S') && (resp[1] == 'U' || resp[1] == 'D' || resp[1] == 'L' || resp[1] == 'R')));
+		getchar();
 
-		printf("Attempting play:%c%c...\n", resp[0], resp[1]);
 		e = action(&c, resp[0], resp[1]);
-
-		if (e == -4) printf("Hi ha hagut un error inesperat (%d)", e);
-		else if(e == -5) printf("El moviment es invalid! (%d)", e);
-		else if(e == -6) printf("Error en enviar la cookie (%d)", e);
-		else if(e == 0) showMap(&c);
-
-		if(e == 0) {
-			recvMsg(&c);
-			sscanf(c.inbuf, "%c\n\0", &resp[0]);
-			if(resp[0] == 'T') printf("\n\nYour turn!\n");
-			else {
-				printf("Error, recived %c while expecting 'T'\n");
-				e = -9;
-			}
+		switch (e) {
+			case -4: printf("Hi ha hagut un error inesperat (Error code: %d)", e); break;
+			case -5: printf("El moviment es invalid! (Error code: %d)", e); break;
+			case -6: printf("Error en enviar la cookie (Error code: %d)", e); break;
+			case 0:
+				if(showMap(&c) == 0) {
+					recvMsg(&c);
+					sscanf(c.inbuf, "%c\n\0", &resp[0]);
+				} else resp[0] = 'W';
+				switch (resp[0]) {
+					case 'T': printf("\n\nYour turn!\n"); break;
+					case 'W':
+						printf("\n\n############ HAS GUANYAT! ############");
+						e = -9;
+						break;
+					case 'L':
+						printf("\n\n############ HAS PERDUT :( ############");
+						e = -9;
+						break;
+					default:
+						printf("Error, recived %c while expecting 'T/W/L'\n", resp[0]);
+						e = -9;
+						break;
+				}
+				break;
+			default: break;
 		}
 	}
 
